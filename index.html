@@ -389,226 +389,252 @@
   </div>
 
   <script>
-    const workouts = [
-      "Flutter Kicks",
-      "American Hammers",
-      "Heel Touches",
-      "Big Boy Sit-Ups",
-      "Freddy Mercuries",
-      "Leg Raises",
-      "Pickle Pounder",
-      "Plank",
-      "Side Plank Left",
-      "Side Plank Right",
-      "Dead Bug",
-      "Superman"
-    ];
+  const workouts = [
+    "Flutter Kicks",
+    "American Hammers",
+    "Heel Touches",
+    "Big Boy Sit-Ups",
+    "Freddy Mercuries",
+    "Leg Raises",
+    "Pickle Pounder",
+    "Plank",
+    "Side Plank Left",
+    "Side Plank Right",
+    "Dead Bug",
+    "Superman"
+  ];
 
-    const sliceColors = [
-      "#111111", "#8B0000", "#1f1f1f", "#B8860B",
-      "#202020", "#A61B1B", "#141414", "#C89B2A",
-      "#242424", "#951616", "#191919", "#D4AF37"
-    ];
+  const sliceColors = [
+    "#111111", "#8B0000", "#1f1f1f", "#B8860B",
+    "#202020", "#A61B1B", "#141414", "#C89B2A",
+    "#242424", "#951616", "#191919", "#D4AF37"
+  ];
 
-    const canvas = document.getElementById("wheelCanvas");
-    const ctx = canvas.getContext("2d");
+  const canvas = document.getElementById("wheelCanvas");
+  const ctx = canvas.getContext("2d");
 
-    const resultWorkout = document.getElementById("resultWorkout");
-    const resultSub = document.getElementById("resultSub");
-    const spinBtn = document.getElementById("spinBtn");
-    const autoToggle = document.getElementById("autoToggle");
-    const voiceToggle = document.getElementById("voiceToggle");
-    const timerValue = document.getElementById("timerValue");
-    const barFill = document.getElementById("barFill");
+  const resultWorkout = document.getElementById("resultWorkout");
+  const resultSub = document.getElementById("resultSub");
+  const spinBtn = document.getElementById("spinBtn");
+  const autoToggle = document.getElementById("autoToggle");
+  const voiceToggle = document.getElementById("voiceToggle");
+  const timerValue = document.getElementById("timerValue");
+  const barFill = document.getElementById("barFill");
 
-    const TWO_PI = Math.PI * 2;
-    const SLICE_COUNT = workouts.length;
-    const SLICE_ANGLE = TWO_PI / SLICE_COUNT;
-    const COUNTDOWN_SECONDS = 40;
+  const TWO_PI = Math.PI * 2;
+  const SLICE_COUNT = workouts.length;
+  const SLICE_ANGLE = TWO_PI / SLICE_COUNT;
+  const COUNTDOWN_SECONDS = 40;
 
-    let rotation = 0;              // radians
-    let isSpinning = false;
-    let highlightedIndex = null;
-    let countdown = COUNTDOWN_SECONDS;
-    let timerInterval = null;
-    let autoEnabled = true;
-    let voiceEnabled = true;
-    let cycleStarted = false;
+  let rotation = 0;
+  let isSpinning = false;
+  let highlightedIndex = null;
+  let countdown = COUNTDOWN_SECONDS;
+  let timerInterval = null;
+  let autoEnabled = true;
+  let voiceEnabled = true;
+  let cycleStarted = false;
+  let speechUnlocked = false;
 
-    function resizeCanvas() {
-      const rect = canvas.getBoundingClientRect();
-      const ratio = window.devicePixelRatio || 1;
-      canvas.width = rect.width * ratio;
-      canvas.height = rect.height * ratio;
-      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
-      drawWheel();
-    }
+  function resizeCanvas() {
+    const rect = canvas.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(rect.width * ratio);
+    canvas.height = Math.floor(rect.height * ratio);
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+    drawWheel();
+  }
 
-    function fitText(text, maxWidth, startSize) {
-      let size = startSize;
+  function fitText(text, maxWidth, startSize) {
+    let size = startSize;
+    ctx.font = `900 ${size}px Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif`;
+    while (size > 12 && ctx.measureText(text).width > maxWidth) {
+      size -= 1;
       ctx.font = `900 ${size}px Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif`;
-      while (size > 12 && ctx.measureText(text).width > maxWidth) {
-        size -= 1;
-        ctx.font = `900 ${size}px Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif`;
-      }
-      return size;
     }
+    return size;
+  }
 
-    function drawWheel() {
-      const w = canvas.getBoundingClientRect().width;
-      const h = canvas.getBoundingClientRect().height;
-      ctx.clearRect(0, 0, w, h);
+  function wrapArcText(text, maxWidth, fontSize) {
+    const words = text.split(" ");
+    const lines = [];
+    let line = "";
 
-      const cx = w / 2;
-      const cy = h / 2;
-      const radius = Math.min(w, h) * 0.47;
-      const innerHub = radius * 0.16;
+    for (const word of words) {
+      const test = line ? `${line} ${word}` : word;
+      if (ctx.measureText(test).width <= maxWidth) {
+        line = test;
+      } else {
+        if (line) lines.push(line);
+        line = word;
+      }
+    }
+    if (line) lines.push(line);
 
-      ctx.save();
-      ctx.translate(cx, cy);
-      ctx.rotate(rotation);
+    const lineHeight = fontSize * 0.95;
+    const totalHeight = (lines.length - 1) * lineHeight;
 
-      for (let i = 0; i < SLICE_COUNT; i++) {
-        const start = -Math.PI / 2 + i * SLICE_ANGLE;
-        const end = start + SLICE_ANGLE;
+    lines.forEach((ln, idx) => {
+      const y = idx * lineHeight - totalHeight / 2;
+      ctx.strokeText(ln, 0, y);
+      ctx.fillText(ln, 0, y);
+    });
+  }
 
+  function drawWheel() {
+    const w = canvas.getBoundingClientRect().width;
+    const h = canvas.getBoundingClientRect().height;
+    ctx.clearRect(0, 0, w, h);
+
+    const cx = w / 2;
+    const cy = h / 2;
+    const radius = Math.min(w, h) * 0.47;
+    const innerHub = radius * 0.16;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(rotation);
+
+    for (let i = 0; i < SLICE_COUNT; i++) {
+      const start = -Math.PI / 2 + i * SLICE_ANGLE;
+      const end = start + SLICE_ANGLE;
+
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.arc(0, 0, radius, start, end);
+      ctx.closePath();
+
+      ctx.fillStyle = sliceColors[i % sliceColors.length];
+      ctx.fill();
+
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = "rgba(255,255,255,0.85)";
+      ctx.stroke();
+
+      if (i === highlightedIndex) {
+        ctx.save();
         ctx.beginPath();
         ctx.moveTo(0, 0);
         ctx.arc(0, 0, radius, start, end);
         ctx.closePath();
-
-        ctx.fillStyle = sliceColors[i % sliceColors.length];
+        ctx.fillStyle = "rgba(255,255,255,0.18)";
         ctx.fill();
-
-        ctx.lineWidth = 4;
-        ctx.strokeStyle = "rgba(255,255,255,0.85)";
-        ctx.stroke();
-
-        if (i === highlightedIndex) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.moveTo(0, 0);
-          ctx.arc(0, 0, radius, start, end);
-          ctx.closePath();
-          ctx.fillStyle = "rgba(255,255,255,0.18)";
-          ctx.fill();
-          ctx.restore();
-        }
-
-        const mid = start + SLICE_ANGLE / 2;
-        const textRadius = radius * 0.70;
-        const text = workouts[i].toUpperCase();
-
-        ctx.save();
-        ctx.translate(Math.cos(mid) * textRadius, Math.sin(mid) * textRadius);
-        ctx.rotate(mid + Math.PI / 2);
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-
-        const maxWidth = radius * 0.33;
-        const fontSize = fitText(text, maxWidth, 28);
-        ctx.font = `900 ${fontSize}px Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif`;
-        ctx.lineWidth = 5;
-        ctx.strokeStyle = "rgba(0,0,0,0.75)";
-        ctx.fillStyle = "#ffffff";
-
-        wrapArcText(text, maxWidth, fontSize);
         ctx.restore();
       }
 
-      // outer ring
-      ctx.beginPath();
-      ctx.arc(0, 0, radius + 2, 0, TWO_PI);
-      ctx.lineWidth = 8;
-      ctx.strokeStyle = "#ffffff";
-      ctx.stroke();
+      const mid = start + SLICE_ANGLE / 2;
+      const textRadius = radius * 0.70;
+      const text = workouts[i].toUpperCase();
 
-      ctx.beginPath();
-      ctx.arc(0, 0, radius - 18, 0, TWO_PI);
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = "rgba(255,255,255,0.65)";
-      ctx.stroke();
-
-      // center hub
-      ctx.beginPath();
-      ctx.arc(0, 0, innerHub + 18, 0, TWO_PI);
-      ctx.fillStyle = "#ffffff";
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(0, 0, innerHub + 8, 0, TWO_PI);
-      ctx.fillStyle = "#111111";
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.arc(0, 0, innerHub, 0, TWO_PI);
-      ctx.fillStyle = "#d4af37";
-      ctx.fill();
-
-      ctx.fillStyle = "#111";
+      ctx.save();
+      ctx.translate(Math.cos(mid) * textRadius, Math.sin(mid) * textRadius);
+      ctx.rotate(mid + Math.PI / 2);
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      ctx.font = `900 ${Math.max(18, innerHub * 0.38)}px Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif`;
-      ctx.fillText("F3", 0, -innerHub * 0.14);
-      ctx.font = `900 ${Math.max(12, innerHub * 0.18)}px Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif`;
-      ctx.fillText("MARY", 0, innerHub * 0.24);
 
+      const maxWidth = radius * 0.33;
+      const fontSize = fitText(text, maxWidth, 28);
+      ctx.font = `900 ${fontSize}px Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif`;
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "rgba(0,0,0,0.75)";
+      ctx.fillStyle = "#ffffff";
+
+      wrapArcText(text, maxWidth, fontSize);
       ctx.restore();
     }
 
-    function wrapArcText(text, maxWidth, fontSize) {
-      const words = text.split(" ");
-      const lines = [];
-      let line = "";
+    ctx.beginPath();
+    ctx.arc(0, 0, radius + 2, 0, TWO_PI);
+    ctx.lineWidth = 8;
+    ctx.strokeStyle = "#ffffff";
+    ctx.stroke();
 
-      for (const word of words) {
-        const test = line ? `${line} ${word}` : word;
-        if (ctx.measureText(test).width <= maxWidth) {
-          line = test;
-        } else {
-          if (line) lines.push(line);
-          line = word;
-        }
-      }
-      if (line) lines.push(line);
+    ctx.beginPath();
+    ctx.arc(0, 0, radius - 18, 0, TWO_PI);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = "rgba(255,255,255,0.65)";
+    ctx.stroke();
 
-      const lineHeight = fontSize * 0.95;
-      const totalHeight = (lines.length - 1) * lineHeight;
+    ctx.beginPath();
+    ctx.arc(0, 0, innerHub + 18, 0, TWO_PI);
+    ctx.fillStyle = "#ffffff";
+    ctx.fill();
 
-      lines.forEach((ln, idx) => {
-        const y = idx * lineHeight - totalHeight / 2;
-        ctx.strokeText(ln, 0, y);
-        ctx.fillText(ln, 0, y);
+    ctx.beginPath();
+    ctx.arc(0, 0, innerHub + 8, 0, TWO_PI);
+    ctx.fillStyle = "#111111";
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(0, 0, innerHub, 0, TWO_PI);
+    ctx.fillStyle = "#d4af37";
+    ctx.fill();
+
+    ctx.fillStyle = "#111";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `900 ${Math.max(18, innerHub * 0.38)}px Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif`;
+    ctx.fillText("F3", 0, -innerHub * 0.14);
+    ctx.font = `900 ${Math.max(12, innerHub * 0.18)}px Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif`;
+    ctx.fillText("MARY", 0, innerHub * 0.24);
+
+    ctx.restore();
+  }
+
+  function normalizeAngle(a) {
+    a = a % TWO_PI;
+    if (a < 0) a += TWO_PI;
+    return a;
+  }
+
+  // FIXED: account for slice centers, not slice edges
+  function getWinningIndex(rot = rotation) {
+    const pointerAngle = -Math.PI / 2;
+    const relative = normalizeAngle(pointerAngle - rot + SLICE_ANGLE / 2);
+    return Math.floor(relative / SLICE_ANGLE) % SLICE_COUNT;
+  }
+
+  function updateResult(index) {
+    highlightedIndex = index;
+    resultWorkout.textContent = workouts[index];
+    resultSub.textContent = "40 Seconds";
+    drawWheel();
+  }
+
+  async function unlockSpeech() {
+    if (!("speechSynthesis" in window)) return false;
+
+    try {
+      window.speechSynthesis.cancel();
+
+      const u = new SpeechSynthesisUtterance(" ");
+      u.volume = 0;
+      u.rate = 1;
+      u.pitch = 1;
+
+      await new Promise((resolve) => {
+        u.onend = resolve;
+        u.onerror = resolve;
+        window.speechSynthesis.speak(u);
+        setTimeout(resolve, 250);
       });
+
+      speechUnlocked = true;
+      return true;
+    } catch (e) {
+      return false;
     }
+  }
 
-    function normalizeAngle(a) {
-      a = a % TWO_PI;
-      if (a < 0) a += TWO_PI;
-      return a;
-    }
+  function speak(text) {
+    if (!voiceEnabled || !speechUnlocked || !("speechSynthesis" in window)) return;
 
-    function getWinningIndex(rot = rotation) {
-      const pointerAngle = -Math.PI / 2; // top
-      const relative = normalizeAngle(pointerAngle - rot);
-      return Math.floor(relative / SLICE_ANGLE) % SLICE_COUNT;
-    }
-
-    function updateResult(index) {
-      highlightedIndex = index;
-      resultWorkout.textContent = workouts[index];
-      resultSub.textContent = "40 Seconds";
-      drawWheel();
-    }
-
-    function speak(text) {
-      if (!voiceEnabled || !("speechSynthesis" in window)) return;
-
+    try {
       window.speechSynthesis.cancel();
 
       const utter = new SpeechSynthesisUtterance(text);
-      utter.rate = 0.95;
-      utter.pitch = 0.95;
+      utter.rate = 0.92;
+      utter.pitch = 0.9;
       utter.volume = 1;
 
       const voices = window.speechSynthesis.getVoices();
@@ -619,159 +645,176 @@
 
       if (preferred) utter.voice = preferred;
       window.speechSynthesis.speak(utter);
+    } catch (e) {
+      console.log("Speech failed:", e);
     }
+  }
 
-    function updateTimerUI() {
-      timerValue.textContent = cycleStarted ? `${countdown}` : "--";
-      const pct = cycleStarted ? Math.max(0, Math.min(1, countdown / COUNTDOWN_SECONDS)) : 1;
-      barFill.style.transform = `scaleX(${pct})`;
+  function updateTimerUI() {
+    timerValue.textContent = cycleStarted ? `${countdown}` : "--";
+    const pct = cycleStarted ? Math.max(0, Math.min(1, countdown / COUNTDOWN_SECONDS)) : 1;
+    barFill.style.transform = `scaleX(${pct})`;
+  }
+
+  function stopCountdown() {
+    if (timerInterval) {
+      clearInterval(timerInterval);
+      timerInterval = null;
     }
+  }
 
-    function stopCountdown() {
-      if (timerInterval) {
-        clearInterval(timerInterval);
-        timerInterval = null;
-      }
-    }
+  function startCountdown() {
+    if (!cycleStarted) return;
+    stopCountdown();
+    countdown = COUNTDOWN_SECONDS;
+    updateTimerUI();
 
-    function startCountdown() {
-      if (!cycleStarted) return;
-      stopCountdown();
-      countdown = COUNTDOWN_SECONDS;
-      updateTimerUI();
-
-      timerInterval = setInterval(() => {
-        if (isSpinning) return;
-
-        countdown -= 1;
-        updateTimerUI();
-
-        if (countdown <= 0) {
-          stopCountdown();
-          countdown = 0;
-          updateTimerUI();
-
-          if (autoEnabled && !isSpinning) {
-            spinWheel(true);
-          } else {
-            startCountdown();
-          }
-        }
-      }, 1000);
-    }
-
-    function animateSpin(startRotation, finalRotation, duration, onDone) {
-      const startTime = performance.now();
-
-      function frame(now) {
-        const elapsed = now - startTime;
-        const t = Math.min(1, elapsed / duration);
-        const eased = 1 - Math.pow(1 - t, 4); // strong ease-out
-        rotation = startRotation + (finalRotation - startRotation) * eased;
-        drawWheel();
-
-        if (t < 1) {
-          requestAnimationFrame(frame);
-        } else {
-          rotation = finalRotation;
-          drawWheel();
-          onDone?.();
-        }
-      }
-
-      requestAnimationFrame(frame);
-    }
-
-    function spinWheel(auto = false) {
+    timerInterval = setInterval(() => {
       if (isSpinning) return;
 
-      isSpinning = true;
-      stopCountdown();
-      highlightedIndex = null;
+      countdown -= 1;
+      updateTimerUI();
+
+      if (countdown <= 0) {
+        stopCountdown();
+        countdown = 0;
+        updateTimerUI();
+
+        if (autoEnabled && !isSpinning) {
+          spinWheel(true);
+        } else {
+          startCountdown();
+        }
+      }
+    }, 1000);
+  }
+
+  function animateSpin(startRotation, finalRotation, duration, onDone) {
+    const startTime = performance.now();
+
+    function frame(now) {
+      const elapsed = now - startTime;
+      const t = Math.min(1, elapsed / duration);
+      const eased = 1 - Math.pow(1 - t, 4);
+      rotation = startRotation + (finalRotation - startRotation) * eased;
       drawWheel();
 
-      const currentIndex = getWinningIndex(rotation);
-
-      let targetIndex = Math.floor(Math.random() * SLICE_COUNT);
-      if (targetIndex === currentIndex) {
-        targetIndex = (targetIndex + 1 + Math.floor(Math.random() * (SLICE_COUNT - 1))) % SLICE_COUNT;
+      if (t < 1) {
+        requestAnimationFrame(frame);
+      } else {
+        rotation = finalRotation;
+        drawWheel();
+        onDone?.();
       }
-
-      const pointerAngle = -Math.PI / 2;
-      const sliceCenter = targetIndex * SLICE_ANGLE + SLICE_ANGLE / 2;
-      const baseRotation = pointerAngle - sliceCenter;
-
-      const currentNorm = normalizeAngle(rotation);
-      let targetNorm = normalizeAngle(baseRotation);
-
-      let delta = targetNorm - currentNorm;
-      if (delta < 0) delta += TWO_PI;
-
-      const extraSpins = 7 + Math.floor(Math.random() * 3); // 7-9 full spins
-      const finalRotation = rotation + extraSpins * TWO_PI + delta;
-      const duration = 5200 + Math.random() * 900;
-
-      animateSpin(rotation, finalRotation, duration, () => {
-        const winner = getWinningIndex(rotation);
-        updateResult(winner);
-
-        const say = `${workouts[winner]}. Forty seconds.`;
-        speak(say);
-
-        isSpinning = false;
-
-        if (!cycleStarted) {
-          cycleStarted = true;
-        }
-
-        startCountdown();
-      });
     }
 
-    spinBtn.addEventListener("click", () => {
-      // wake speech system on iOS/Safari after user gesture
-      if ("speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-      spinWheel(false);
-    });
+    requestAnimationFrame(frame);
+  }
 
-    autoToggle.addEventListener("click", () => {
-      autoEnabled = !autoEnabled;
-      autoToggle.textContent = `Auto Spin: ${autoEnabled ? "On" : "Off"}`;
-      autoToggle.classList.toggle("active", autoEnabled);
-      autoToggle.classList.toggle("inactive", !autoEnabled);
-
-      if (cycleStarted && !isSpinning) {
-        startCountdown();
-      }
-    });
-
-    voiceToggle.addEventListener("click", () => {
-      voiceEnabled = !voiceEnabled;
-      voiceToggle.textContent = `Voice: ${voiceEnabled ? "On" : "Off"}`;
-      voiceToggle.classList.toggle("active", voiceEnabled);
-      voiceToggle.classList.toggle("inactive", !voiceEnabled);
-
-      if (!voiceEnabled && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
-      }
-    });
-
-    window.addEventListener("resize", resizeCanvas);
-
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.getVoices();
-      window.speechSynthesis.onvoiceschanged = () => {};
+  function chooseTargetIndexAvoidCurrent() {
+    const currentIndex = getWinningIndex(rotation);
+    let targetIndex = Math.floor(Math.random() * SLICE_COUNT);
+    if (targetIndex === currentIndex) {
+      targetIndex = (targetIndex + 1) % SLICE_COUNT;
     }
+    return targetIndex;
+  }
 
-    resizeCanvas();
-    updateTimerUI();
-    updateResult(0);
-    resultWorkout.textContent = "Press Spin";
-    resultSub.textContent = "40 Seconds";
+  function computeFinalRotationForIndex(targetIndex) {
+    const pointerAngle = -Math.PI / 2;
+    const sliceCenter = -Math.PI / 2 + (targetIndex * SLICE_ANGLE) + (SLICE_ANGLE / 2);
+    const desiredRotation = pointerAngle - sliceCenter;
+
+    const currentNorm = normalizeAngle(rotation);
+    const targetNorm = normalizeAngle(desiredRotation);
+
+    let delta = targetNorm - currentNorm;
+    if (delta < 0) delta += TWO_PI;
+
+    const extraSpins = 7 + Math.floor(Math.random() * 3);
+    return rotation + extraSpins * TWO_PI + delta;
+  }
+
+  function spinWheel(auto = false) {
+    if (isSpinning) return;
+
+    isSpinning = true;
+    stopCountdown();
     highlightedIndex = null;
     drawWheel();
-  </script>
+
+    const targetIndex = chooseTargetIndexAvoidCurrent();
+    const finalRotation = computeFinalRotationForIndex(targetIndex);
+    const duration = 5200 + Math.random() * 900;
+
+    animateSpin(rotation, finalRotation, duration, () => {
+      // use the target directly so display always matches the intended landing
+      updateResult(targetIndex);
+
+      // optional sanity check in console
+      const detected = getWinningIndex(rotation);
+      console.log("Target:", targetIndex, workouts[targetIndex], "| Detected:", detected, workouts[detected]);
+
+      speak(`${workouts[targetIndex]}. Forty seconds.`);
+
+      isSpinning = false;
+
+      if (!cycleStarted) {
+        cycleStarted = true;
+      }
+
+      startCountdown();
+    });
+  }
+
+  spinBtn.addEventListener("click", async () => {
+    if (!speechUnlocked) {
+      await unlockSpeech();
+    }
+    spinWheel(false);
+  });
+
+  autoToggle.addEventListener("click", () => {
+    autoEnabled = !autoEnabled;
+    autoToggle.textContent = `Auto Spin: ${autoEnabled ? "On" : "Off"}`;
+    autoToggle.classList.toggle("active", autoEnabled);
+    autoToggle.classList.toggle("inactive", !autoEnabled);
+
+    if (cycleStarted && !isSpinning) {
+      startCountdown();
+    }
+  });
+
+  voiceToggle.addEventListener("click", async () => {
+    voiceEnabled = !voiceEnabled;
+    voiceToggle.textContent = `Voice: ${voiceEnabled ? "On" : "Off"}`;
+    voiceToggle.classList.toggle("active", voiceEnabled);
+    voiceToggle.classList.toggle("inactive", !voiceEnabled);
+
+    if (voiceEnabled && !speechUnlocked) {
+      await unlockSpeech();
+    }
+
+    if (!voiceEnabled && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  });
+
+  window.addEventListener("resize", resizeCanvas);
+
+  if ("speechSynthesis" in window) {
+    window.speechSynthesis.getVoices();
+    window.speechSynthesis.onvoiceschanged = () => {
+      window.speechSynthesis.getVoices();
+    };
+  }
+
+  resizeCanvas();
+  updateTimerUI();
+  resultWorkout.textContent = "Press Spin";
+  resultSub.textContent = "40 Seconds";
+  highlightedIndex = null;
+  drawWheel();
+</script>
 </body>
 </html>
